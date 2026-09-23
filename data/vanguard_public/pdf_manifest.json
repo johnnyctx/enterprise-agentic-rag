@@ -1,0 +1,36 @@
+{
+  "description": "Public Vanguard PDFs selected as an ingestion demonstration corpus. The repository records authoritative URLs; PDFs and converted Markdown are generated locally by the ingestion pipeline and are not intended as committed repository artifacts.",
+  "retrieved": "2026-09-22",
+  "documents": [
+    {
+      "id": "vanguard_financial_wellness_guide",
+      "title": "Vanguard's guide to financial wellness",
+      "filename": "vanguards_guide_to_financial_wellness.pdf",
+      "url": "https://corporate.vanguard.com/content/dam/corp/research/pdf/vanguards_guide_to_financial_wellness.pdf"
+    },
+    {
+      "id": "vanguard_principles_investing_success",
+      "title": "Vanguard's Principles for Investing Success",
+      "filename": "vanguards_principles_for_investing_success.pdf",
+      "url": "https://corporate.vanguard.com/content/dam/corp/research/pdf/vanguards_principles_for_investing_success.pdf"
+    },
+    {
+      "id": "vanguard_dividend_schedule_2026",
+      "title": "2026 dividend schedule",
+      "filename": "divdat-012026.pdf",
+      "url": "https://investor.vanguard.com/content/dam/retail/us/en/pdfs/taxes/divdat-012026.pdf"
+    },
+    {
+      "id": "vanguard_us_government_obligations_2026",
+      "title": "U.S. government obligations income information",
+      "filename": "usgo-012026.pdf",
+      "url": "https://investor.vanguard.com/content/dam/retail/us/en/pdfs/taxes/usgo-012026.pdf"
+    },
+    {
+      "id": "vanguard_foreign_tax_credit_2026",
+      "title": "Foreign tax credit information for eligible Vanguard funds",
+      "filename": "ftcws-012026.pdf",
+      "url": "https://investor.vanguard.com/content/dam/retail/us/en/pdfs/taxes/ftcws-012026.pdf"
+    }
+  ]
+}

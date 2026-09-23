@@ -1,0 +1,11 @@
+[
+  {"id":"q1","question":"What are the three keys to investing?","expected":"supported"},
+  {"id":"q2","question":"What are the four steps to open an account?","expected":"supported"},
+  {"id":"q3","question":"How long can it take for money to become available for investing?","expected":"supported"},
+  {"id":"q4","question":"What information does Vanguard's privacy notice say it may collect?","expected":"supported"},
+  {"id":"q5","question":"What do I need in a newly opened brokerage account before buying an ETF?","expected":"supported"},
+  {"id":"q6","question":"What is an ETF?","expected":"supported"},
+  {"id":"q7","question":"How does opening an account relate to buying an ETF?","expected":"supported"},
+  {"id":"q8","question":"What is Vanguard's internal AWS architecture?","expected":"refused"},
+  {"id":"q9","question":"What is Vanguard's internal production agent architecture?","expected":"refused"}
+]
