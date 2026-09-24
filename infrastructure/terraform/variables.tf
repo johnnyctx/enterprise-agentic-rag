@@ -12,3 +12,8 @@ variable "queue_name" {
   type    = string
   default = "enterprise-agentic-rag-ingestion"
 }
+
+variable "metadata_table_name" {
+  type    = string
+  default = "enterprise-agentic-rag-metadata"
+}

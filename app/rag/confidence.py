@@ -1,5 +1,9 @@
-def confidence(retrieval, citation_integrity, answer_relevance, claim_support, refused):
-    if refused or claim_support < .5 or answer_relevance < .45:
+from __future__ import annotations
+
+
+def confidence(retrieval: float, citation_integrity: float, answer_relevance: float, claim_support: float, refused: bool):
+    if refused:
         return 0.0, "refused"
-    score=.25*retrieval+.20*citation_integrity+.25*answer_relevance+.30*claim_support
-    return score, "high" if score>=.75 else "medium" if score>=.5 else "low"
+    score = 0.25 * retrieval + 0.20 * citation_integrity + 0.25 * answer_relevance + 0.30 * claim_support
+    label = "high" if score >= 0.75 else "medium" if score >= 0.50 else "low"
+    return score, label

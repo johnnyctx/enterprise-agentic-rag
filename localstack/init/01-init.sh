@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "LocalStack ready. Infrastructure is managed by Terraform."
+#!/bin/sh
+set -eu
+echo "LocalStack ready; infrastructure is managed by Terraform/tflocal."

@@ -1,12 +1,25 @@
+"""Offline seed path for tests/local development.
+
+The production-shaped path is scripts/upload_corpus.py -> S3 -> SQS -> worker.
+This script is intentionally deterministic and does not require AWS services.
+"""
 from pathlib import Path
-from app.api.main import store
-from app.ingestion.chunker import load_markdown, chunk_document
 
-paths = list(Path("data/vanguard_public").glob("*.md"))
-paths += list(Path("data/vanguard_public/converted_markdown").glob("*.md"))
+from app.config import settings
+from app.ingestion.chunker import chunk_document, load_markdown
+from app.rag.store import HybridIndex
 
-for p in paths:
-    source_url = "https://www.vanguard.com/"
-    store.add(chunk_document(load_markdown(p, source_url)))
 
-print(f"Loaded {len(store.chunks)} chunks from {len(paths)} Markdown documents.")
+def main() -> None:
+    source = Path("data/vanguard_public/converted_markdown")
+    index = HybridIndex(settings.index_path)
+    paths = sorted(source.glob("*.md"))
+    total = 0
+    for path in paths:
+        total += len((chunks := chunk_document(load_markdown(path))))
+        index.add(chunks)
+    print(f"Indexed {total} chunks from {len(paths)} Markdown documents into {settings.index_path}.")
+
+
+if __name__ == "__main__":
+    main()

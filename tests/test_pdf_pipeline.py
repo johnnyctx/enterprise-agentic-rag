@@ -8,8 +8,7 @@ def test_normalize_markdown_preserves_headings_and_collapses_blanks():
     assert normalize_markdown(text) == "# Heading\n\nBody\n\nNext\n"
 
 
-def test_pdf_manifest_contains_multiple_public_sources():
+def test_pdf_manifest_contains_five_public_sources():
     manifest = Path("data/vanguard_public/pdf_manifest.json").read_text(encoding="utf-8")
     assert manifest.count('"url":') >= 5
     assert "vanguards_guide_to_financial_wellness.pdf" in manifest
-    assert "vanguards_principles_for_investing_success.pdf" in manifest

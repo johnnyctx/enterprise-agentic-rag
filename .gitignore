@@ -29,3 +29,9 @@ crash.*.log
 # Generated Vanguard demo corpus artifacts
 data/vanguard_public/source_pdfs/
 data/vanguard_public/converted_markdown/
+
+# Generated runtime artifacts
+data/runtime/
+
+# LocalStack state
+.localstack/

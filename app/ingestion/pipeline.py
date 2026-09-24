@@ -1,10 +1,4 @@
-"""End-to-end source ingestion pipeline.
-
-PDF path:
-    source PDF -> PDF-to-Markdown -> metadata -> Markdown artifact -> chunking/indexing
-
-The Markdown artifact is the canonical text representation consumed by downstream RAG.
-"""
+"""Canonical PDF -> Markdown ingestion with provenance."""
 from __future__ import annotations
 
 import hashlib
@@ -31,16 +25,14 @@ def ingest_pdf(
     document_id: str,
     title: str,
     access_level: str = "PUBLIC",
+    version: str = "1",
 ) -> Path:
-    """Convert one PDF to Markdown and write a provenance-rich Markdown artifact."""
     pdf = Path(pdf_path)
     out_dir = Path(markdown_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
     body = pdf_to_markdown(pdf)
     checksum = sha256(pdf)
-    retrieved_at = datetime.now(timezone.utc).isoformat()
-
+    now = datetime.now(timezone.utc).isoformat()
     frontmatter = {
         "document_id": document_id,
         "title": title,
@@ -48,12 +40,13 @@ def ingest_pdf(
         "source_url": source_url,
         "source_file": pdf.name,
         "sha256": checksum,
-        "retrieved_at": retrieved_at,
-        "access_level": access_level,
+        "retrieved_at": now,
+        "converted_at": now,
+        "access_level": access_level.upper(),
+        "version": version,
         "conversion": "pymupdf4llm",
         "content_type": "text/markdown",
     }
-
     target = out_dir / f"{document_id}.md"
     target.write_text(
         "---\n" + json.dumps(frontmatter, indent=2) + "\n---\n\n" + body,

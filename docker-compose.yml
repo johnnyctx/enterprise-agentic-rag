@@ -5,11 +5,58 @@ services:
     ports:
       - "4566:4566"
     environment:
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
       LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
     volumes:
       - "./localstack/init:/etc/localstack/init/ready.d"
       - "localstack_data:/var/lib/localstack"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  ingestion-worker:
+    build: .
+    container_name: enterprise-agentic-rag-ingestion-worker
+    command: ["python", "-m", "app.ingestion.worker"]
+    environment:
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://localstack:4566
+      S3_BUCKET: enterprise-agentic-rag-documents
+      SQS_QUEUE: enterprise-agentic-rag-ingestion
+      METADATA_TABLE: enterprise-agentic-rag-metadata
+      INDEX_PATH: /app/data/runtime/index.sqlite3
+      CANONICAL_MARKDOWN_DIR: /app/data/runtime/canonical_markdown
+      LOG_LEVEL: INFO
+    volumes:
+      - "./data/runtime:/app/data/runtime"
+    depends_on:
+      localstack:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build: .
+    container_name: enterprise-agentic-rag-api
+    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://localstack:4566
+      INDEX_PATH: /app/data/runtime/index.sqlite3
+      LLM_PROVIDER: ${LLM_PROVIDER:-demo}
+      MODEL_NAME: ${MODEL_NAME:-deterministic-demo}
+    volumes:
+      - "./data/runtime:/app/data/runtime"
+    depends_on:
+      localstack:
+        condition: service_healthy
 
 volumes:
   localstack_data:
