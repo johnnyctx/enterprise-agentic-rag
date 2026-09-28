@@ -52,6 +52,8 @@ services:
       INDEX_PATH: /app/data/runtime/index.sqlite3
       LLM_PROVIDER: ${LLM_PROVIDER:-demo}
       MODEL_NAME: ${MODEL_NAME:-deterministic-demo}
+      RERANKER_PROVIDER: ${RERANKER_PROVIDER:-demo}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
     volumes:
       - "./data/runtime:/app/data/runtime"
     depends_on:

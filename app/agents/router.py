@@ -12,6 +12,16 @@ def classify(query: str) -> str:
         return "POLICY"
     if any(x in q for x in ("how do i", "how to", "steps", "process", "what do i need")):
         return "PROCEDURAL"
+    if (
+        "what are" in q
+        or "key principles" in q
+        or "main principles" in q
+        or "what principles" in q
+        or "list" in q
+        or "identify" in q
+        or "which principles" in q
+    ):
+        return "LIST"
     return "KNOWLEDGE"
 
 
@@ -22,6 +32,7 @@ def expand_query(query: str, route: str, attempt: int) -> str:
         "PROCEDURAL": " steps requirements process",
         "POLICY": " policy notice information categories",
         "COMPARISON": " compare relationship differences",
+        "LIST": " key principles goals diversification costs allocation saving",
         "KNOWLEDGE": " definition details",
     }.get(route, " details")
     return query + suffix

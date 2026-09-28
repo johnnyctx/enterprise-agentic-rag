@@ -201,6 +201,16 @@ class HybridIndex:
             for i, (score, c) in enumerate(fused[:top_k], 1)
         ]
 
+    def get_document_chunks(self, doc_id: str, allowed_levels: set[str] | None = None) -> list[Chunk]:
+        levels = allowed_levels or {"PUBLIC", "INTERNAL", "RESTRICTED"}
+        rows = self._db.execute(
+            "SELECT * FROM chunks WHERE doc_id=? AND access_level IN ({}) ORDER BY chunk_index".format(
+                ",".join("?" for _ in levels)
+            ),
+            (doc_id, *sorted(levels)),
+        ).fetchall()
+        return [self._row_to_chunk(row) for row in rows]
+
     def get_chunks(self, ids: list[str]) -> list[Chunk]:
         if not ids:
             return []

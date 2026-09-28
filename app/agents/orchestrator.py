@@ -6,6 +6,8 @@ from app.observability.audit import audit_event, new_correlation_id
 from app.rag.answer_relevance import evaluate_answer_relevance
 from app.rag.answer_support import validate_claims
 from app.rag.citations import build_citations, validate_citations
+from app.rag.document_target import select_target_document
+from app.rag.list_context import select_list_context
 from app.rag.confidence import confidence
 from app.rag.rerank import rerank
 from app.rag.retrieve import Retriever
@@ -38,9 +40,30 @@ class AgentOrchestrator:
         for attempt in range(self.max_attempts):
             search_query = expand_query(query, route, attempt)
             audit_event("retrieval_started", attempt=attempt + 1, route=route)
-            raw = self.retriever.retrieve(search_query, access_level, top_k=10)
-            ranked = filter_authorized(rerank(search_query, raw), access_level)
-            context = ranked[:4]
+            retrieval_k = 20 if route == "LIST" else 10
+            raw = self.retriever.retrieve(search_query, access_level, top_k=retrieval_k)
+            target_doc_id = None
+            target_doc_reason = "not applicable"
+            if route == "LIST":
+                target_doc_id, target_doc_reason = select_target_document(query, raw)
+                if target_doc_id:
+                    target_chunks = self.retriever.store.get_document_chunks(
+                        target_doc_id,
+                        {"PUBLIC", "INTERNAL", "RESTRICTED"},
+                    )
+                    # Do not allow a cross-document chunk to enter a list answer.
+                    # Once the target document is known, search its full structural
+                    # outline so standalone principle headings are not lost to
+                    # lexical ranking.
+                    if len(target_chunks) >= 2:
+                        raw = target_chunks
+            ranked = filter_authorized(rerank(search_query, raw, route=route), access_level)
+            if route == "LIST" and target_doc_id:
+                context = select_list_context(raw, ranked, limit=20)
+                context = filter_authorized(rerank(search_query, context, route=route), access_level)
+                context = context[:20]
+            else:
+                context = ranked[:4]
             citations = build_citations(context)
             answer = self.generator.generate(query, context)
             warnings = validate_citations(answer, citations)
@@ -64,6 +87,8 @@ class AgentOrchestrator:
                 "warnings": warnings,
                 "claim_statuses": [c.status for c in claims],
                 "chunk_ids": [c.chunk_id for c in context],
+                "target_doc_id": target_doc_id,
+                "target_doc_reason": target_doc_reason,
             }
             attempts.append(attempt_result)
             best = (answer, citations, claims, warnings, relevance, relevance_reason, score, label, context)
@@ -92,6 +117,8 @@ class AgentOrchestrator:
                     "answer_relevance": relevance,
                     "answer_relevance_reason": relevance_reason,
                     "ranked_chunk_ids": [c.chunk_id for c in context],
+                    "target_doc_id": target_doc_id,
+                    "target_doc_reason": target_doc_reason,
                 },
             }
         audit_event("query_completed", attempts=len(attempts), confidence=score)
@@ -111,6 +138,8 @@ class AgentOrchestrator:
                 "answer_relevance": relevance,
                 "answer_relevance_reason": relevance_reason,
                 "ranked_chunk_ids": [c.chunk_id for c in context],
+                "target_doc_id": target_doc_id,
+                "target_doc_reason": target_doc_reason,
             },
         }
 
