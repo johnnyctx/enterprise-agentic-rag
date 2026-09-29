@@ -4,29 +4,6 @@ An enterprise-oriented, AWS-shaped reference implementation of an agentic RAG sy
 
 > **Demonstration-corpus disclaimer:** the repository uses publicly available Vanguard materials only as a demonstration knowledge corpus. It does **not** represent Vanguard's internal systems, data, policies, architecture, controls, or production implementation.
 
-## Problem Statement
-
-Enterprise RAG systems can fail in subtle ways even when retrieval and citations appear successful:
-
-- retrieving relevant but incomplete evidence;
-- producing confident answers from weak context;
-- citing documents that do not fully support generated claims;
-- exposing unauthorized information;
-- making retrieval decisions difficult to diagnose.
-
-This project focuses on those engineering problems rather than only demonstrating LLM generation.
-
-The repository implements:
-
-- AWS-shaped ingestion boundaries (S3 → SQS → worker);
-- hybrid retrieval with reciprocal rank fusion (RRF);
-- authorization before context construction;
-- cross-encoder reranking;
-- claim and citation validation;
-- bounded agentic retries;
-- confidence and refusal behavior;
-- auditable traces.
-
 ## Architecture
 
 ```text
@@ -58,16 +35,10 @@ The repository implements:
                          reciprocal rank fusion
                                 |
                                 v
-                       top 20 candidates
-                                |
-                                v
                          authorization filter
                                 |
                                 v
-                       cross-encoder reranker
-                                |
-                                v
-                            top 6
+                             reranker
                                 |
                                 v
                  bounded agentic orchestration loop
@@ -115,77 +86,21 @@ The agent is not simply `retrieve -> generate`. It has an explicit, bounded stat
 1. classify the request;
 2. create the first search plan;
 3. retrieve using lexical + vector search;
-4. fuse candidates with reciprocal rank fusion (RRF);
-5. keep the top 20 retrieval candidates and apply authorization filtering;
-6. rerank the authorized candidates with the cross-encoder and keep the top 6 evidence chunks;
-7. generate an answer with evidence markers;
-8. validate citations, relevance, and claim support;
-9. retry once with an expanded search plan when evidence is weak;
-10. refuse when the evidence gate still fails;
-11. emit an auditable trace.
+4. fuse candidates and rerank;
+5. apply authorization before context construction;
+6. generate an answer with evidence markers;
+7. validate citations, relevance, and claim support;
+8. retry once with an expanded search plan when evidence is weak;
+9. refuse when the evidence gate still fails;
+10. emit an auditable trace.
 
 The loop is bounded to prevent runaway agent behavior and uncontrolled cost/latency.
-
-## Evidence-first answer generation
-
-The system is intentionally designed so that evidence quality determines answer quality.
-
-The generation path is:
-
-```text
-retrieve → authorize → rerank → generate → validate → retry → refuse
-```
-
-The system prefers refusal over unsupported answers.
-
-Validation includes:
-
-- citation integrity;
-- answer relevance;
-- claim support;
-- numeric/time contradiction checks;
-- confidence scoring.
-
-This design addresses a common enterprise RAG failure mode: a system may retrieve a related document and produce a confident, well-cited answer that is still incorrect.
-
-The validation pipeline attempts to reduce these failures by treating unsupported answers as system errors rather than acceptable output.
-
-## Retrieval and reranking
-
-The retrieval pipeline follows a two-stage pattern: **BM25 + dense retrieval -> RRF -> authorization -> cross-encoder reranking**. The implementation keeps the score from each stage explicit so retrieval behavior is observable and diagnosable.
-
-### Stage 1: hybrid retrieval
-
-- **BM25 / lexical retrieval** runs through the local SQLite FTS5 index. Its raw inverted BM25 score is preserved as `lexical_score`.
-- **Dense retrieval** uses the local deterministic vector index for the offline reference implementation. Cosine similarity is preserved as `vector_score`.
-- **Reciprocal Rank Fusion (RRF)** combines the lexical and dense result rankings using `k=60`. The fused score is stored as `rrf_score`, and `retrieval_rank` explicitly means the resulting RRF rank.
-- The orchestrator retrieves up to **20 candidates** before the second stage.
-
-RRF is rank-based rather than a weighted average of BM25 and cosine values, which avoids assuming that the two retrieval score scales are directly comparable.
-
-### Stage 2: authorization and cross-encoder reranking
-
-Authorization filtering remains **between retrieval and reranking**. Only authorized candidates can reach the second-stage reranker or the generator context.
-
-The previous hand-tuned title/section/body weighted reranker has been removed. The second stage uses a cross-encoder abstraction with `BAAI/bge-reranker-v2-m3` available through the optional `sentence-transformers` dependency. The resulting score and rank are stored as `rerank_score` and `rerank_rank`. The orchestrator sends the **top 6 reranked chunks** to the generator.
-
-BGE is **lazy-loaded**. The default local provider remains the deterministic offline reranker, so the normal demo does not download the BGE model. To enable the BGE implementation locally:
-
-```bash
-pip install -e ".[pdf,dev,rerank]"
-export RERANKER_PROVIDER=bge
-export RERANKER_MODEL='BAAI/bge-reranker-v2-m3'
-```
-
-The default Docker image intentionally does not install the optional `rerank` extra. This keeps the local reference image smaller and avoids forcing a large model dependency on every deployment. A production deployment can package the approved cross-encoder separately or use an equivalent managed inference boundary.
-
-The retrieval tests explicitly verify that raw lexical/vector scores and RRF metadata survive retrieval, and that cross-encoder reranking can change ordering without losing the original RRF rank.
 
 ## Quick start: LocalStack + tflocal
 
 Requirements:
 
-- Python 3.12+ (tested with Python 3.14)
+- Python 3.14 (the reference runtime)
 - Docker Desktop
 - Terraform
 - `tflocal`
@@ -301,30 +216,6 @@ The response contains:
 
 `debug` is intentionally useful for interview/demo inspection. A production API would normally gate detailed traces behind privileged diagnostics and avoid exposing internal implementation metadata to ordinary users.
 
-### Example behavior
-
-Question:
-
-```text
-What are Vanguard's Principles for Investing Success?
-```
-
-Expected answer:
-
-1. Create clear, appropriate investment goals.
-2. Keep a balanced and diversified mix of investments.
-3. Minimize costs.
-4. Maintain perspective and long-term discipline.
-
-Each item should:
-
-- map to evidence chunks;
-- include citations;
-- pass claim validation;
-- survive confidence gating.
-
-Structural headings, document titles, and unsupported sections should not be treated as principles.
-
 ## Offline development path
 
 For unit/integration work where LocalStack and the public network are unnecessary, first run the PDF downloader so converted Markdown exists, then:
@@ -372,9 +263,8 @@ The test suite covers:
 - provenance parsing;
 - structure-aware chunking;
 - ingestion-worker identity/idempotency behavior;
-- lexical/vector hybrid retrieval and RRF score preservation;
-- authorization filtering before reranking;
-- cross-encoder reranking and preservation of retrieval metadata;
+- lexical/vector hybrid retrieval;
+- authorization filtering;
 - citation validation;
 - numeric/time claim contradiction detection;
 - answer relevance;
@@ -388,9 +278,10 @@ app/
   agents/             router + bounded agentic orchestrator
   api/                FastAPI API
   ingestion/          PDF conversion, provenance, chunking, S3/SQS worker
-  rag/                retrieval, reranking, citations, validation, confidence
+  index/              index package boundary
   llm/                deterministic + Bedrock provider adapters
   observability/      structured audit logging
+  rag/                retrieval, reranking, citations, validation, confidence
   security/           authorization filtering
 
 data/vanguard_public/
@@ -429,21 +320,6 @@ Provider boundaries are explicit: PDF conversion, index/retrieval, LLM generatio
 ### Cost and latency
 
 The agent loop is bounded. Retrieval candidates are capped before reranking and context construction. Deterministic local generation is zero-model-cost for development; Bedrock can be introduced only where model generation adds value. Production should record token usage and latency by route and retry count.
-
-## Interview discussion topics
-
-Possible areas for deeper discussion:
-
-- Why hybrid retrieval was chosen over vector-only search.
-- Why RRF was used instead of score blending.
-- Why authorization occurs before reranking.
-- Deterministic local development versus managed cloud inference.
-- Confidence scoring and refusal thresholds.
-- Tradeoffs between latency and retrieval quality.
-- LocalStack as an AWS development boundary.
-- Replacing SQLite with OpenSearch or another managed search/vector service.
-- Bedrock integration patterns.
-- Evaluation strategies for enterprise RAG.
 
 ## Important scope boundary
 
