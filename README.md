@@ -254,7 +254,6 @@ The harness reports per-question pass/fail, confidence, and final aggregate accu
 
 ```bash
 python -m pytest -q
-ruff check .
 ```
 
 The test suite covers:
